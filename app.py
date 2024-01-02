@@ -1,8 +1,9 @@
-import streamlit as st
 import pandas as pd
+import streamlit as st
+
 
 def main():
-    st.title("Excel 파일 업로드")
+    st.title("DasHboard beta")
 
     # 파일 업로드 섹션
     uploaded_file = st.file_uploader("여기에 파일을 드래그하거나 클릭하여 업로드하세요.", type=['xls', 'xlsx'])
