@@ -148,11 +148,12 @@ def transfer_to_new_sector(df, first_idx, origin_code, target_code, ratio, code_
     msg = f'{ratio*100}% of {origin_code} has been moved to {target_code}.'
     return df_editing, msg
 
-def del_zero_series(df, first_idx, mid_ID_idx):
+def remove_zero_series(df, first_idx, mid_ID_idx):
     df_editing = df.copy()
     df_test = df_editing.copy()
     df_test = df_editing.iloc[first_idx[0]:, first_idx[1]:].apply(pd.to_numeric, errors='coerce')
     zero_row_indices = df_test.index[(df_test == 0).all(axis=1)].tolist()
+    zero_row_indices = [item for item in zero_row_indices if item >first_idx[0] and item <mid_ID_idx[0]]
     zero_col_indices = list(map(lambda x: x - first_idx[0] + first_idx[1], zero_row_indices))
     df_editing.drop(zero_row_indices, inplace=True)
     df_editing.drop(zero_col_indices, inplace=True, axis=1)
@@ -172,7 +173,7 @@ def load_data(file):
 
 ### Streamlit 구현
 def main():
-    st.title("DasHboard beta 1.0(24.03.07.)")
+    st.title("DasHboard beta 1.1")
     mode = st.radio('모드 선택', ['Korea', 'China', 'Manual'])
     if mode == 'Korea':
         first_idx = (6,2)
@@ -251,7 +252,7 @@ def main():
         col1, col3 = st.columns(2)
         with col1:
             if st.button('0인 행(열) 삭제'):
-                result = del_zero_series(st.session_state['df_editing'], first_idx, st.session_state['mid_ID_idx'])
+                result = remove_zero_series(st.session_state['df_editing'], first_idx, st.session_state['mid_ID_idx'])
                 st.session_state['df_editing'] = result[0]
                 st.session_state['data_editing_log'] += (result[1] + '\n\n')
                 st.session_state['mid_ID_idx'] = result[2]
