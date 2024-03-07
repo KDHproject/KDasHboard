@@ -22,6 +22,7 @@ def filter_matrix(matrix, threshold):
     return filtered_matrix
 
 # 임계 값을 0-1까지로, 25%로 x축을 한정해서 시각화, 최대 변화율 지점의 x축 값 찾기
+@st.cache_data 
 def threshold_count(matrix):
     L = matrix
     element_counts = []
@@ -153,7 +154,7 @@ def remove_zero_series(df, first_idx, mid_ID_idx):
     df_test = df_editing.copy()
     df_test = df_editing.iloc[first_idx[0]:, first_idx[1]:].apply(pd.to_numeric, errors='coerce')
     zero_row_indices = df_test.index[(df_test == 0).all(axis=1)].tolist()
-    zero_row_indices = [item for item in zero_row_indices if item >first_idx[0] and item <mid_ID_idx[0]]
+    zero_row_indices = [item for item in zero_row_indices if item>=first_idx[0] and item<=mid_ID_idx[0]]
     zero_col_indices = list(map(lambda x: x - first_idx[0] + first_idx[1], zero_row_indices))
     df_editing.drop(zero_row_indices, inplace=True)
     df_editing.drop(zero_col_indices, inplace=True, axis=1)
@@ -164,16 +165,27 @@ def remove_zero_series(df, first_idx, mid_ID_idx):
     mid_ID_idx = (mid_ID_idx[0] - count, mid_ID_idx[1] - count)
     return df_editing, msg, mid_ID_idx
 
+def donwload_data(df, file_name):
+    csv = convert_df(df)
+    button = st.download_button(label=f"{file_name} 다운로드", data=csv, file_name=file_name, mime='text/csv')
+    return button
+
+
 @st.cache_data()
 def load_data(file):
     st.session_state['df'] = pd.read_excel(file, header=None)
     return st.session_state['df']
 
+@st.cache_data 
+def convert_df(df):
+    return df.to_csv(header=False, index=False).encode('utf-8-sig')
+
 
 
 ### Streamlit 구현
 def main():
-    st.title("DasHboard beta 1.1")
+    st.sidebar.header("다운로드")
+    st.title("DasHboard beta 1.2")
     mode = st.radio('모드 선택', ['Korea', 'China', 'Manual'])
     if mode == 'Korea':
         first_idx = (6,2)
@@ -189,35 +201,32 @@ def main():
     st.session_state['uploaded_file'] = st.file_uploader("여기에 파일을 드래그하거나 클릭하여 업로드하세요.", type=['xls', 'xlsx'])
     if 'df' not in st.session_state:
         if st.session_state['uploaded_file']:
+            st.write(st.session_state['uploaded_file'].name)
             st.session_state['df'] = load_data(st.session_state.uploaded_file)
             st.session_state['mid_ID_idx'] = get_mid_ID_idx(st.session_state['df'], first_idx)
             st.session_state['df'].iloc[first_idx[0]:, first_idx[1]:] = st.session_state['df'].iloc[first_idx[0]:, first_idx[1]:].apply(pd.to_numeric, errors='coerce')
 
     if 'df' in st.session_state:
-        matrix_X = get_submatrix_withlabel(st.session_state['df'], first_idx[0], first_idx[1], st.session_state['mid_ID_idx'][0], st.session_state['mid_ID_idx'][1], first_idx, numberoflabel=number_of_label)
-        matrix_R = get_submatrix_withlabel(st.session_state['df'], st.session_state['mid_ID_idx'][0], first_idx[1], st.session_state['df'].shape[0]-1, st.session_state['mid_ID_idx'][1], first_idx, numberoflabel=number_of_label)
-        matrix_C = get_submatrix_withlabel(st.session_state['df'], first_idx[0], st.session_state['mid_ID_idx'][1], st.session_state['mid_ID_idx'][0], st.session_state['df'].shape[1]-1, first_idx, numberoflabel=number_of_label)
-
+        uploaded_matrix_X = get_submatrix_withlabel(st.session_state['df'], first_idx[0], first_idx[1], st.session_state['mid_ID_idx'][0], st.session_state['mid_ID_idx'][1], first_idx, numberoflabel=number_of_label)
+        uploaded_matrix_R = get_submatrix_withlabel(st.session_state['df'], st.session_state['mid_ID_idx'][0], first_idx[1], st.session_state['df'].shape[0]-1, st.session_state['mid_ID_idx'][1], first_idx, numberoflabel=number_of_label)
+        uploaded_matrix_C = get_submatrix_withlabel(st.session_state['df'], first_idx[0], st.session_state['mid_ID_idx'][1], st.session_state['mid_ID_idx'][0], st.session_state['df'].shape[1]-1, first_idx, numberoflabel=number_of_label)
+        with st.sidebar.expander("최초 업로드 원본 파일"):
+            donwload_data(st.session_state['df'], 'uploaded_df')
+            donwload_data(uploaded_matrix_X, 'uploaded_matrix_X')
+            donwload_data(uploaded_matrix_R, 'uploaded_matrix_R')
+            donwload_data(uploaded_matrix_C, 'uploaded_matrix_C')
         # 원본 부분 header 표시
         st.header('최초 업로드 된 Excel파일 입니다.')
         # 데이터프레임 표시 
-        tab1, tab2, tab3, tab4 = st.tabs(['원본 Excel', 'original_matrix_X', 'original_matrix_R', 'original_matrix_C'])
-
+        tab1, tab2, tab3, tab4 = st.tabs(['uploaded_df', 'uploaded_matrix_X', 'uploaded_matrix_R', 'uploaded_matrix_C'])
         with tab1:
-            st.subheader('최초 업로드 된 원본 Excel파일 입니다.')
             st.write(st.session_state['df'])
-
         with tab2:
-            st.subheader('최초 업로드 된 원본 Excel파일의 matrix_X 입니다.')
-            st.write(matrix_X)
-
+            st.write(uploaded_matrix_X)
         with tab3:
-            st.subheader('최초 업로드 된 원본 Excel파일의 matrix_R 입니다.')
-            st.write(matrix_R)
-
+            st.write(uploaded_matrix_R)
         with tab4:
-            st.subheader('최초 업로드 된 원본 Excel파일의 matrix_C 입니다.')
-            st.write(matrix_C)
+            st.write(uploaded_matrix_C)
 
         if 'df_editing' not in st.session_state:
             st.session_state['df_editing'] = st.session_state['df'].copy()
@@ -270,24 +279,24 @@ def main():
         edited_matrix_X = get_submatrix_withlabel(st.session_state['df_edited'], first_idx[0],first_idx[1], st.session_state['mid_ID_idx'][0], st.session_state['mid_ID_idx'][1], first_idx, numberoflabel = 2)
         edited_matrix_R = get_submatrix_withlabel(st.session_state['df_edited'], st.session_state['mid_ID_idx'][0],first_idx[1], st.session_state['df_edited'].shape[0]-1, st.session_state['mid_ID_idx'][1], first_idx, numberoflabel = 2)
         edited_matrix_C = get_submatrix_withlabel(st.session_state['df_edited'], first_idx[0], st.session_state['mid_ID_idx'][1], st.session_state['mid_ID_idx'][0], st.session_state['df_edited'].shape[1]-1, first_idx, numberoflabel = 2)
-
+        with st.sidebar.expander("수정된 파일"):
+            donwload_data(st.session_state['df_edited'], 'edited_df')
+            donwload_data(edited_matrix_X, 'edited_matrix_X')
+            donwload_data(edited_matrix_R, 'edited_matrix_R')
+            donwload_data(edited_matrix_C, 'ueditedmatrix_C')
         # 데이터프레임 표시
-        tab1, tab2, tab3, tab4 = st.tabs(['edited Excel', 'edited matrix X', 'edited matrix R', 'edited matrix C'])
+        tab1, tab2, tab3, tab4 = st.tabs(['edited_df', 'edited_matrix_X', 'edited_matrix_R', 'edited_matrix_C'])
 
         with tab1:
-            st.subheader('수정 된 Excel파일 입니다.')
             st.write(st.session_state['df_edited'])
 
         with tab2:
-            st.subheader('최초 업로드 된 원본 Excel파일의 matrix_X 입니다.')
             st.write(edited_matrix_X)
 
         with tab3:
-            st.subheader('최초 업로드 된 원본 Excel파일의 matrix_R 입니다.')
             st.write(edited_matrix_R)
 
         with tab4:
-            st.subheader('최초 업로드 된 원본 Excel파일의 matrix_C 입니다.')
             st.write(edited_matrix_C)
         st.header("DataFrame을 임계값을 기준으로 filtering 합니다.")
         st.subheader('threshold에 따른 생존비율 그래프')
@@ -326,7 +335,9 @@ def main():
             st.write(st.session_state['df_normalized_with_label'])
         with col4:
             st.write(st.session_state['df_for_leontief_with_label'])
-
+        with st.sidebar.expander('normalized, leontief inverse'):
+            donwload_data(st.session_state['df_normalized_with_label'], 'normalized')
+            donwload_data(st.session_state['df_for_leontief_with_label'], 'leontief inverse')
         col1, col2= st.columns(2)
         with col1:
             threshold = st.number_input('threshold를 입력하세요', 0.000, 1.000, step=None)
@@ -337,24 +348,30 @@ def main():
     if 'threshold' in st.session_state:
         # binary matrix 생성
         binary_matrix = make_binary_matrix(st.session_state['df_for_leontief_with_label'].iloc[2:, 2:].apply(pd.to_numeric, errors='coerce'), st.session_state.threshold)
-        df_edited_filtered = st.session_state['df_for_leontief']
-        df_edited_filtered.iloc[2:, 2:] = df_edited_filtered.iloc[2:, 2:].apply(pd.to_numeric, errors='coerce')*binary_matrix
-        df_normalized_matrix_filtered = st.session_state['df_normalized_with_label']
-        df_normalized_matrix_filtered.iloc[2:, 2:] = st.session_state['df_normalized_with_label'].iloc[2:, 2:].apply(pd.to_numeric, errors='coerce')*binary_matrix
-        leontief_inverse_filtered = st.session_state['df_for_leontief_with_label']
-        leontief_inverse_filtered.iloc[2:, 2:] = st.session_state['df_for_leontief_with_label'].iloc[2:, 2:].apply(pd.to_numeric, errors='coerce')*binary_matrix
+        filtered_matrix_X = st.session_state['df_for_leontief']
+        filtered_matrix_X.iloc[2:, 2:] = filtered_matrix_X.iloc[2:, 2:].apply(pd.to_numeric, errors='coerce')*binary_matrix
+        filtered_normalized = st.session_state['df_normalized_with_label']
+        filtered_normalized.iloc[2:, 2:] = st.session_state['df_normalized_with_label'].iloc[2:, 2:].apply(pd.to_numeric, errors='coerce')*binary_matrix
+        filtered_leontief = st.session_state['df_for_leontief_with_label']
+        filtered_leontief.iloc[2:, 2:] = st.session_state['df_for_leontief_with_label'].iloc[2:, 2:].apply(pd.to_numeric, errors='coerce')*binary_matrix
         st.subheader('Filtered matrices')
-        col1, col2, col3, col4 = st.tabs(['binary_matrix', 'normailization denominator', 'normalized', 'leontief inverse'])
+        col1, col2, col3, col4 = st.tabs(['binary_matrix', 'normailization denominator', 'filtered_normalized', 'filtered_leontief'])
         with col1:
             st.write(binary_matrix)
         with col2:
-            st.write(df_edited_filtered)
+            st.write(filtered_matrix_X)
         with col3:
-            st.write(df_normalized_matrix_filtered)
+            st.write(filtered_normalized)
         with col4:
-            st.write(leontief_inverse_filtered)
-    with st.expander('수정내역 보기'):
-        st.write('수정내역')
+            st.write(filtered_leontief)
+
+        with st.sidebar.expander("filtered file"):
+            donwload_data(binary_matrix, 'binary_matrix')
+            donwload_data(filtered_matrix_X, 'filtered_matrix_X')
+            donwload_data(filtered_normalized, 'filtered_normalized')
+            donwload_data(filtered_leontief, 'filtered_leontief')
+    st.sidebar.header('수정내역')
+    with st.sidebar.expander('수정내역 보기'):
         st.write(st.session_state['data_editing_log'])
 if __name__ == "__main__":
     main()
