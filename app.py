@@ -161,7 +161,7 @@ def main():
             donwload_data(st.session_state['df_for_leontief_with_label'], 'leontief inverse')
         col1, col2= st.columns(2)
         with col1:
-            threshold = st.number_input('threshold를 입력하세요', 0.000, 1.000, step=None)
+            threshold = st.number_input('threshold를 입력하세요', 0.000, 1.000, step=0.001)
         with col2:
             if st.button('Apply threshold'):
                 st.session_state.threshold = threshold
@@ -169,7 +169,7 @@ def main():
     if 'threshold' in st.session_state:
         # binary matrix 생성
         binary_matrix = make_binary_matrix(st.session_state['df_for_leontief_with_label'].iloc[2:, 2:].apply(pd.to_numeric, errors='coerce'), st.session_state.threshold)
-        filtered_matrix_X = st.session_state['df_for_leontief']
+        filtered_matrix_X = st.session_state['df_for_leontief'].copy()
         filtered_matrix_X.iloc[2:, 2:] = filtered_matrix_X.iloc[2:, 2:].apply(pd.to_numeric, errors='coerce')*binary_matrix
         filtered_normalized = st.session_state['df_normalized_with_label']
         filtered_normalized.iloc[2:, 2:] = st.session_state['df_normalized_with_label'].iloc[2:, 2:].apply(pd.to_numeric, errors='coerce')*binary_matrix
